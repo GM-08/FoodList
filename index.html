@@ -977,7 +977,7 @@ init()
 </script>
 
 <script>
-// ── PLACE SEARCH via Nominatim (OpenStreetMap) ──
+// ── PLACE SEARCH: City of Chicago → Nominatim fallback ──
 let _nameInputTimer = null
 
 async function onNameInput() {
@@ -985,51 +985,115 @@ async function onNameInput() {
   document.getElementById('autofill-notice').style.display = 'none'
   clearTimeout(_nameInputTimer)
   if (val.length < 2) { hideSuggestions(); return }
+
   _nameInputTimer = setTimeout(async () => {
-    try {
-      const query = encodeURIComponent(val + ' Chicago')
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=8&addressdetails=1&countrycodes=us`,
-        { headers: { 'Accept-Language': 'en' } }
-      )
-      const results = await res.json()
-      const restaurants = results.filter(r =>
-        r.type === 'restaurant' || r.type === 'cafe' || r.type === 'bar' ||
-        r.type === 'fast_food' || r.type === 'pub' || r.type === 'food_court' ||
-        r.class === 'amenity'
-      )
-      const list = restaurants.length ? restaurants : results.slice(0, 6)
-      if (!list.length) { hideSuggestions(); return }
-      window._osmResults = list
-      const box = document.getElementById('places-suggestions')
-      box.innerHTML = list.map((r, i) => {
-        const name = r.name || r.display_name.split(',')[0]
-        const sub = r.address
-          ? [r.address.neighbourhood || r.address.suburb, r.address.city_district || r.address.city].filter(Boolean).join(', ')
-          : r.display_name.split(',').slice(1, 3).join(',').trim()
-        return `<div class="places-suggestion" onclick="pickPlace(${i})">
-          <div class="ps-main">${name}</div>
-          <div class="ps-sub">${sub}</div>
-        </div>`
-      }).join('')
-      box.style.display = 'block'
-    } catch(e) {
-      console.error('Search error:', e)
-      hideSuggestions()
-    }
-  }, 350)
+    const found = await searchChicago(val)
+    if (!found) await searchNominatim(val)
+  }, 320)
 }
 
-function pickPlace(i) {
+async function searchChicago(val) {
+  try {
+    const q = encodeURIComponent(val.toUpperCase())
+    const url = `https://data.cityofchicago.org/resource/4ijn-s7e5.json?$where=dba_name like '%25${q}%25'&$limit=8&$select=dba_name,address,zip,latitude,longitude,facility_type&$order=inspection_date DESC`
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } })
+    const data = await res.json()
+    // Dedupe by name+address
+    const seen = new Set()
+    const unique = data.filter(r => {
+      const key = (r.dba_name + r.address).toLowerCase()
+      if (seen.has(key)) return false
+      seen.add(key); return true
+    })
+    if (!unique.length) return false
+    window._searchResults = unique.map(r => ({ source: 'chicago', raw: r }))
+    showSuggestions(window._searchResults)
+    return true
+  } catch(e) { return false }
+}
+
+async function searchNominatim(val) {
+  try {
+    const query = encodeURIComponent(val + ' Chicago')
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=8&addressdetails=1&countrycodes=us`,
+      { headers: { 'Accept-Language': 'en' } }
+    )
+    const results = await res.json()
+    const restaurants = results.filter(r =>
+      r.type === 'restaurant' || r.type === 'cafe' || r.type === 'bar' ||
+      r.type === 'fast_food' || r.type === 'pub' || r.type === 'food_court' ||
+      r.class === 'amenity'
+    )
+    const list = restaurants.length ? restaurants : results.slice(0, 6)
+    if (!list.length) { hideSuggestions(); return }
+    window._searchResults = list.map(r => ({ source: 'osm', raw: r }))
+    showSuggestions(window._searchResults)
+  } catch(e) { hideSuggestions() }
+}
+
+function showSuggestions(items) {
+  const box = document.getElementById('places-suggestions')
+  box.innerHTML = items.map((item, i) => {
+    let name, sub
+    if (item.source === 'chicago') {
+      const r = item.raw
+      name = r.dba_name ? r.dba_name.charAt(0) + r.dba_name.slice(1).toLowerCase() : ''
+      sub = r.address || ''
+    } else {
+      const r = item.raw
+      name = r.name || r.display_name.split(',')[0]
+      sub = r.address
+        ? [r.address.neighbourhood || r.address.suburb, r.address.city_district || r.address.city].filter(Boolean).join(', ')
+        : r.display_name.split(',').slice(1, 3).join(',').trim()
+    }
+    return `<div class="places-suggestion" onclick="pickPlace(${i})">
+      <div class="ps-main">${name}</div>
+      <div class="ps-sub">${sub}</div>
+    </div>`
+  }).join('')
+  box.style.display = 'block'
+}
+
+async function pickPlace(i) {
   hideSuggestions()
-  const r = window._osmResults?.[i]
-  if (!r) return
-  const name = r.name || r.display_name.split(',')[0]
+  const item = window._searchResults?.[i]
+  if (!item) return
+
+  let name = '', hood = '', lat = null, lng = null
+
+  if (item.source === 'chicago') {
+    const r = item.raw
+    name = r.dba_name ? r.dba_name.charAt(0) + r.dba_name.slice(1).toLowerCase() : ''
+    // Get neighborhood from lat/lng via reverse geocode
+    lat = parseFloat(r.latitude)
+    lng = parseFloat(r.longitude)
+    if (lat && lng) {
+      try {
+        const rev = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`, { headers: { 'Accept-Language': 'en' } })
+        const revData = await rev.json()
+        hood = revData.address?.neighbourhood || revData.address?.suburb || revData.address?.city_district || ''
+      } catch(e) {}
+    }
+  } else {
+    const r = item.raw
+    name = r.name || r.display_name.split(',')[0]
+    hood = r.address?.neighbourhood || r.address?.suburb || r.address?.city_district || ''
+    lat = parseFloat(r.lat)
+    lng = parseFloat(r.lon)
+  }
+
   document.getElementById('f-name').value = name
-  const hood = r.address?.neighbourhood || r.address?.suburb || r.address?.city_district || ''
   if (hood) document.getElementById('f-neighborhood').value = hood
-  const mapsQuery = encodeURIComponent(name + ' ' + (r.display_name || ''))
-  document.getElementById('f-maps').value = `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`
+
+  // Google Maps link — use coordinates if available for accuracy, else name search
+  if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+    document.getElementById('f-maps').value = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+  } else {
+    const mapsQuery = encodeURIComponent(name + ' Chicago')
+    document.getElementById('f-maps').value = `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`
+  }
+
   document.getElementById('autofill-notice').style.display = 'inline'
 }
 
