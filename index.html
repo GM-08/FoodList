@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Chicago Eats</title>
+  <title>FoodList</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
@@ -221,7 +221,7 @@
 <!-- ══ LOGIN SCREEN ══ -->
 <div id="login-screen">
   <div class="login-card">
-    <h1>Chicago Eats</h1>
+    <h1>FoodList</h1>
     <p>Sign in to access your list</p>
     <div class="login-field">
       <label>Email</label>
@@ -240,7 +240,7 @@
 <div id="app">
   <div class="topbar">
     <div class="topbar-left">
-      <h1>Chicago Eats</h1>
+      <h1>FoodList</h1>
       <span class="topbar-sub" id="topbar-email"></span>
     </div>
     <div class="topbar-right">
@@ -517,7 +517,7 @@ function toDB(d) {
 async function savePlace() {
   const name = document.getElementById('f-name').value.trim()
   if (!name) { alert('Name is required.'); return }
-  const hypeVal = window._selectedHype || null
+  const hypeVal = (window._selectedHype === undefined || window._selectedHype === null) ? null : window._selectedHype
   const data = {
     name,
     customCat: selectedCats.join(','),
@@ -607,6 +607,7 @@ function renderAll() {
   updateFilterSelects()
   renderStats()
   if (currentTab === 'table') renderTable()
+  else if (currentTab === 'map') renderMap()
 }
 
 function updateFilterSelects() {
@@ -642,11 +643,11 @@ function hypeOrder(p) {
 }
 
 function selectHype(val) {
-  window._selectedHype = val
-  const map = { null: 'none', list: 'list', '1': '1', '2': '2' }
+  window._selectedHype = val === undefined ? null : val
+  const active = val === null || val === undefined ? 'none' : String(val)
   ;['none','list','1','2'].forEach(k => {
     const el = document.getElementById('hype-btn-'+k)
-    if (el) el.classList.toggle('active', k === String(val === null ? 'none' : val))
+    if (el) el.classList.toggle('active', k === active)
   })
 }
 
@@ -779,7 +780,7 @@ function switchTab(tab) {
   document.getElementById('tab-table').style.fontWeight = tab === 'table' ? '500' : '400'
   document.getElementById('tab-map').style.fontWeight = tab === 'map' ? '500' : '400'
   if (tab === 'map') setTimeout(() => renderMap(), 50)
-  else { renderAll() }
+  else renderAll()
 }
 
 // ── MODALS ────────────────────────────────────
@@ -791,6 +792,7 @@ function openAdd() {
   ids.forEach(id => document.getElementById(id).value = '')
   document.getElementById('f-price-modal').value = '$$'
   ;['ac-m1','ac-m2','ac-m3','ac-bib','ac-jb'].forEach(id => document.getElementById(id).checked = false)
+  window._selectedHype = null
   selectHype(null)
   renderTagPool(); renderCatPool()
   document.getElementById('place-modal').classList.add('open')
@@ -977,7 +979,7 @@ init()
 </script>
 
 <script>
-// ── PLACE SEARCH: City of Chicago → Nominatim fallback ──
+// ── PLACE SEARCH: Nominatim first, City of Chicago fallback ──
 let _nameInputTimer = null
 
 async function onNameInput() {
@@ -987,29 +989,9 @@ async function onNameInput() {
   if (val.length < 2) { hideSuggestions(); return }
 
   _nameInputTimer = setTimeout(async () => {
-    const found = await searchChicago(val)
-    if (!found) await searchNominatim(val)
+    const found = await searchNominatim(val)
+    if (!found) await searchChicago(val)
   }, 320)
-}
-
-async function searchChicago(val) {
-  try {
-    const q = encodeURIComponent(val.toUpperCase())
-    const url = `https://data.cityofchicago.org/resource/4ijn-s7e5.json?$where=dba_name like '%25${q}%25'&$limit=8&$select=dba_name,address,zip,latitude,longitude,facility_type&$order=inspection_date DESC`
-    const res = await fetch(url, { headers: { 'Accept': 'application/json' } })
-    const data = await res.json()
-    // Dedupe by name+address
-    const seen = new Set()
-    const unique = data.filter(r => {
-      const key = (r.dba_name + r.address).toLowerCase()
-      if (seen.has(key)) return false
-      seen.add(key); return true
-    })
-    if (!unique.length) return false
-    window._searchResults = unique.map(r => ({ source: 'chicago', raw: r }))
-    showSuggestions(window._searchResults)
-    return true
-  } catch(e) { return false }
 }
 
 async function searchNominatim(val) {
@@ -1026,10 +1008,30 @@ async function searchNominatim(val) {
       r.class === 'amenity'
     )
     const list = restaurants.length ? restaurants : results.slice(0, 6)
-    if (!list.length) { hideSuggestions(); return }
+    if (!list.length) return false
     window._searchResults = list.map(r => ({ source: 'osm', raw: r }))
     showSuggestions(window._searchResults)
-  } catch(e) { hideSuggestions() }
+    return true
+  } catch(e) { return false }
+}
+
+async function searchChicago(val) {
+  try {
+    const q = encodeURIComponent(val.toUpperCase())
+    const url = `https://data.cityofchicago.org/resource/4ijn-s7e5.json?$where=dba_name like '%25${q}%25'&$limit=8&$select=dba_name,address,zip,latitude,longitude&$order=inspection_date DESC`
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } })
+    const data = await res.json()
+    const seen = new Set()
+    const unique = data.filter(r => {
+      const key = (r.dba_name + r.address).toLowerCase()
+      if (seen.has(key)) return false
+      seen.add(key); return true
+    })
+    if (!unique.length) return false
+    window._searchResults = unique.map(r => ({ source: 'chicago', raw: r }))
+    showSuggestions(window._searchResults)
+    return true
+  } catch(e) { return false }
 }
 
 function showSuggestions(items) {
@@ -1065,7 +1067,6 @@ async function pickPlace(i) {
   if (item.source === 'chicago') {
     const r = item.raw
     name = r.dba_name ? r.dba_name.charAt(0) + r.dba_name.slice(1).toLowerCase() : ''
-    // Get neighborhood from lat/lng via reverse geocode
     lat = parseFloat(r.latitude)
     lng = parseFloat(r.longitude)
     if (lat && lng) {
@@ -1086,7 +1087,6 @@ async function pickPlace(i) {
   document.getElementById('f-name').value = name
   if (hood) document.getElementById('f-neighborhood').value = hood
 
-  // Google Maps link — use coordinates if available for accuracy, else name search
   if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
     document.getElementById('f-maps').value = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
   } else {
