@@ -78,7 +78,8 @@
 
     /* ── TABLE ── */
     .table-wrap { padding: 0 1.5rem 2rem; overflow-x: auto; }
-    table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; box-shadow: var(--shadow); }
+    table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--surface); box-shadow: var(--shadow); }
+    .table-inner { border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; }
     thead { background: var(--bg); }
     th { text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--border); cursor: pointer; white-space: nowrap; user-select: none; }
     th:hover { color: var(--text); }
@@ -293,13 +294,13 @@
   </div>
 
   <div id="view-table">
-    <div class="table-wrap">
+    <div class="table-wrap"><div class="table-inner">
       <table>
         <thead><tr id="thead-row"></tr></thead>
         <tbody id="tbody"></tbody>
         <tfoot><tr><td colspan="12"><div class="add-row" onclick="openAdd()">+ Add place</div></td></tr></tfoot>
       </table>
-    </div>
+    </div></div>
   </div>
 
   <div id="view-map" style="display:none">
@@ -533,7 +534,7 @@ async function savePlace() {
       if (!go) return
     }
   }
-  const hypeVal = (window._selectedHype === undefined || window._selectedHype === null) ? null : window._selectedHype
+  const hypeVal = window._selectedHype || null
   const data = {
     name,
     customCat: selectedCats.join(','),
@@ -668,8 +669,8 @@ function normaliseName(name) {
     .trim()
 }
 function selectHype(val) {
-  window._selectedHype = val === undefined ? null : val
-  const active = val === null || val === undefined ? 'none' : String(val)
+  window._selectedHype = (val === undefined || val === null) ? null : String(val)
+  const active = window._selectedHype === null ? 'none' : window._selectedHype
   ;['none','list','1','2'].forEach(k => {
     const el = document.getElementById('hype-btn-'+k)
     if (el) el.classList.toggle('active', k === active)
@@ -823,7 +824,7 @@ function openAdd() {
   window._selectedHype = null
   renderTagPool(); renderCatPool()
   document.getElementById('place-modal').classList.add('open')
-  setTimeout(() => selectHype(null), 10)
+  requestAnimationFrame(() => selectHype(null))
 }
 
 function openEdit(id) {
@@ -844,7 +845,7 @@ function openEdit(id) {
   ;['m1','m2','m3','bib','jb'].forEach(k => document.getElementById('ac-'+k).checked = !!ac[k === 'm1' ? 'michelin1' : k === 'm2' ? 'michelin2' : k === 'm3' ? 'michelin3' : k])
   renderTagPool(); renderCatPool()
   document.getElementById('place-modal').classList.add('open')
-  setTimeout(() => selectHype(_hypeToSet), 10)
+  requestAnimationFrame(() => selectHype(_hypeToSet))
 }
 
 function closeModal(id) {
