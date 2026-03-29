@@ -555,7 +555,7 @@ async function savePlace() {
     if (idx !== -1) places[idx] = { ...places[idx], ...data }
   } else {
     const { data: row } = await sb.from('places').insert(toDB(data)).select().single()
-    if (row) places.unshift(fromDB(row))
+    if (row) places.unshift({ ...data, id: row.id, tried: false, rating: null })
   }
   closeModal('place-modal')
   renderAll()
@@ -605,7 +605,7 @@ function getFiltered() {
   const fTried = document.getElementById('f-tried').value
   const fSearch = document.getElementById('f-search').value.toLowerCase()
   return places.filter(p => {
-    if (fHype && (p.hype || 'list') !== fHype) return false
+    if (fHype && p.hype !== fHype) return false
     if (fCat && !(p.customCat||'').split(',').includes(fCat)) return false
     if (fFood && !(p.foodTags||[]).includes(fFood)) return false
     if (fPrice && p.price !== fPrice) return false
@@ -645,9 +645,10 @@ function renderStats() {
 
 function hypeSymbol(p) {
   if (p.tried) return ''
-  if (p.hype === '2') return '<span class="hype-sym">❗❗</span>'
-  if (p.hype === '1') return '<span class="hype-sym">❗</span>'
-  if (p.hype === 'list') return '<span class="hype-list">📋</span>'
+  const h = p.hype ? String(p.hype).trim() : null
+  if (h === '2') return '<span class="hype-sym">❗❗</span>'
+  if (h === '1') return '<span class="hype-sym">❗</span>'
+  if (h === 'list') return '<span class="hype-list">📋</span>'
   return '<span style="color:var(--text-faint);font-size:12px;">—</span>'
 }
 
