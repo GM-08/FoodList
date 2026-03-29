@@ -354,6 +354,7 @@
     </div>
     <div class="form-group">
       <label>Hype <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-faint)">(optional)</span></label>
+      <input type="hidden" id="hype-value" value="" />
       <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
         <button type="button" id="hype-btn-none" class="hype-opt active" onclick="selectHype(null)">None</button>
         <button type="button" id="hype-btn-list" class="hype-opt" onclick="selectHype('list')">📋 On my list</button>
@@ -530,7 +531,7 @@ async function savePlace() {
       if (!go) return
     }
   }
-  const hypeVal = window._selectedHype || null
+  const hypeVal = document.getElementById('hype-value').value || null
   const data = {
     name,
     customCat: selectedCats.join(','),
@@ -665,9 +666,11 @@ function normaliseName(name) {
     .trim()
 }
 function selectHype(val) {
-  window._selectedHype = (val == null) ? null : String(val)
-  const active = window._selectedHype == null ? 'none' : window._selectedHype
-  document.querySelectorAll('.hype-opt').forEach(el => el.classList.remove('active'))
+  const v = (val == null) ? '' : String(val)
+  const el = document.getElementById('hype-value')
+  if (el) el.value = v
+  const active = v === '' ? 'none' : v
+  document.querySelectorAll('.hype-opt').forEach(b => b.classList.remove('active'))
   const target = document.getElementById('hype-btn-' + active)
   if (target) target.classList.add('active')
 }
@@ -816,7 +819,6 @@ function openAdd() {
   ids.forEach(id => document.getElementById(id).value = '')
   document.getElementById('f-price-modal').value = '$$'
   ;['ac-m1','ac-m2','ac-m3','ac-bib','ac-jb'].forEach(id => document.getElementById(id).checked = false)
-  window._selectedHype = null
   renderTagPool(); renderCatPool()
   document.getElementById('place-modal').classList.add('open')
   selectHype(null)
@@ -1117,11 +1119,13 @@ async function pickPlace(i) {
   document.getElementById('f-name').value = name
   if (hood) document.getElementById('f-neighborhood').value = hood
 
-  if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
-    document.getElementById('f-maps').value = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
-  } else {
-    const mapsQuery = encodeURIComponent(name + ' Chicago')
+  // Use name+address as primary (more likely to open correct business page)
+  // Fall back to coordinates if no name
+  if (name) {
+    const mapsQuery = encodeURIComponent(name + (hood ? ' ' + hood + ' Chicago' : ' Chicago'))
     document.getElementById('f-maps').value = `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`
+  } else if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+    document.getElementById('f-maps').value = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
   }
 
   document.getElementById('autofill-notice').style.display = 'inline'
