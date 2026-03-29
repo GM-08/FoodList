@@ -494,7 +494,7 @@ function fromDB(p) {
     price: p.price || '$$',
     neighborhood: p.neighborhood || '',
     maps: p.maps_url || '',
-    hype: p.hype_manual || null,  // 'list', '1', '2', or null
+    hype: p.hype_manual != null ? String(p.hype_manual) : null,
     rating: p.rating || null,
     tried: p.tried || false,
     notes: p.notes || '',
