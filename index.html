@@ -77,8 +77,14 @@
     .btn-sm { font-size: 12px; padding: 4px 10px; }
 
     /* ── TABLE ── */
-    .table-wrap { padding: 0 1.5rem 2rem; overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; box-shadow: var(--shadow); }
+    .table-wrap { padding: 0 1.5rem 2rem; }
+    .table-scroll { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); }
+    table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--surface); }
+    th:first-child, td:first-child { position: sticky; left: 0; z-index: 2; background: var(--surface); }
+    thead th:first-child { background: var(--bg); z-index: 3; }
+    tbody tr:hover td:first-child { background: var(--bg); }
+    td:first-child::after, th:first-child::after { content: ""; position: absolute; right: -4px; top: 0; bottom: 0; width: 4px; background: linear-gradient(to right, rgba(0,0,0,0.06), transparent); pointer-events: none; }
+    th:first-child, td:first-child { position: sticky; left: 0; }
     thead { background: var(--bg); }
     th { text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid var(--border); cursor: pointer; white-space: nowrap; user-select: none; }
     th:hover { color: var(--text); }
@@ -286,17 +292,18 @@
       <option value="no">Want to try</option>
     </select>
     <input type="text" id="f-search" placeholder="Search..." oninput="renderAll()" />
+    <button class="btn" onclick="resetFilters()" title="Reset all filters and sorting">↺ Reset</button>
     <button class="btn btn-primary" onclick="openAdd()">+ Add</button>
   </div>
 
   <div id="view-table">
-    <div class="table-wrap">
+    <div class="table-wrap"><div class="table-scroll">
       <table>
         <thead><tr id="thead-row"></tr></thead>
         <tbody id="tbody"></tbody>
         <tfoot><tr><td colspan="12"><div class="add-row" onclick="openAdd()">+ Add place</div></td></tr></tfoot>
       </table>
-    </div>
+    </div></div>
   </div>
 
   <div id="view-map" style="display:none">
@@ -618,6 +625,19 @@ function getFiltered() {
 }
 
 // ── RENDER ────────────────────────────────────
+
+function resetFilters() {
+  document.getElementById('f-hype').value = ''
+  document.getElementById('f-cat').value = ''
+  document.getElementById('f-food').value = ''
+  document.getElementById('f-price').value = ''
+  document.getElementById('f-accolade').value = ''
+  document.getElementById('f-tried').value = ''
+  document.getElementById('f-search').value = ''
+  sortCol = null
+  sortDir = 1
+  renderAll()
+}
 function renderAll() {
   updateFilterSelects()
   renderStats()
