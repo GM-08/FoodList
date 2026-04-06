@@ -195,21 +195,27 @@
     .loading { padding: 3rem; text-align: center; color: var(--text-muted); font-size: 14px; }
 
     @media (max-width: 640px) {
+      /* Stats */
       .stats-bar { grid-template-columns: repeat(2,1fr); padding: 0.75rem 1rem; gap: 8px; }
       .stat { padding: 10px 12px; }
       .stat-val { font-size: 20px; }
-      .toolbar { padding: 0 1rem 0.75rem; gap: 6px; }
-      .toolbar select, .toolbar input[type=text] { font-size: 13px; padding: 6px 8px; }
-      .toolbar input[type=text] { min-width: 70px; }
+      /* Topbar */
       .topbar { padding: 0 1rem; height: 50px; }
       .topbar h1 { font-size: 18px; }
       .topbar-sub { display: none; }
+      /* Toolbar — stack filters in two rows */
+      .toolbar { padding: 0.5rem 1rem 0.75rem; gap: 6px; }
+      .toolbar select { font-size: 12px; padding: 6px 6px; flex: 1; min-width: 0; max-width: none; }
+      .toolbar input[type=text] { font-size: 13px; padding: 7px 8px; }
+      /* Table */
       .table-wrap { padding: 0 0 1.5rem; }
       table { font-size: 12px; }
-      th { padding: 8px 8px; font-size: 10px; }
-      td { padding: 8px 8px; }
+      th { padding: 7px 6px; font-size: 10px; }
+      td { padding: 7px 6px; }
+      /* Map */
       .map-section { padding: 0 1rem 1.5rem; }
-      #map-leaflet { height: 400px; }
+      #map-leaflet { height: 380px; }
+      /* Modal — sheet from bottom */
       .form-row { grid-template-columns: 1fr; }
       .modal { padding: 1.25rem 1rem 1.5rem; }
       .modal-overlay { align-items: flex-end; padding: 0; }
@@ -291,9 +297,13 @@
       <option value="yes">Tried</option>
       <option value="no">Want to try</option>
     </select>
-    <input type="text" id="f-search" placeholder="Search..." oninput="renderAll()" />
+    <div style="position:relative;flex:1;min-width:140px;">
+      <input type="text" id="f-search" placeholder="Search or add a place..." oninput="onSearchInput()" autocomplete="off" style="width:100%;padding-right:80px" />
+      <div id="search-add-btn" style="display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);">
+        <button class="btn btn-sm btn-primary" onclick="openAddFromSearch()">+ Add</button>
+      </div>
+    </div>
     <button class="btn" onclick="resetFilters()" title="Reset all filters and sorting">↺ Reset</button>
-    <button class="btn btn-primary" onclick="openAdd()">+ Add</button>
   </div>
 
   <div id="view-table">
@@ -301,7 +311,6 @@
       <table>
         <thead><tr id="thead-row"></tr></thead>
         <tbody id="tbody"></tbody>
-        <tfoot><tr><td colspan="12"><div class="add-row" onclick="openAdd()">+ Add place</div></td></tr></tfoot>
       </table>
     </div></div>
   </div>
@@ -626,6 +635,26 @@ function getFiltered() {
 
 // ── RENDER ────────────────────────────────────
 
+
+function onSearchInput() {
+  const val = document.getElementById('f-search').value
+  const btn = document.getElementById('search-add-btn')
+  // Show "+ Add" button if text doesn't match any existing place name
+  const norm = normaliseName(val)
+  const exists = places.some(p => normaliseName(p.name).includes(norm) && norm.length > 1)
+  btn.style.display = val.trim().length > 1 && !exists ? 'block' : 'none'
+  renderAll()
+}
+
+function openAddFromSearch() {
+  const val = document.getElementById('f-search').value.trim()
+  openAdd()
+  setTimeout(() => {
+    document.getElementById('f-name').value = val
+    // Also trigger nominatim search for the name
+    onNameInput()
+  }, 50)
+}
 function resetFilters() {
   document.getElementById('f-hype').value = ''
   document.getElementById('f-cat').value = ''
@@ -634,6 +663,7 @@ function resetFilters() {
   document.getElementById('f-accolade').value = ''
   document.getElementById('f-tried').value = ''
   document.getElementById('f-search').value = ''
+  const btn = document.getElementById('search-add-btn'); if(btn) btn.style.display='none'
   sortCol = null
   sortDir = 1
   renderAll()
@@ -717,12 +747,12 @@ function renderTable() {
   })
   const arr = c => sortCol===c ? (sortDir===1?' ↑':' ↓') : ''
   const cols = [
-    {k:'name',l:'Name'},{k:'customCat',l:'Category'},{k:'foodTags',l:'Food types'},
-    {k:'neighborhood',l:'Area'},{k:'price',l:'Price'},
-    {k:'hype',l:'Hype'},{k:'accolades',l:'Accolades'},{k:'rating',l:'Rating'},{k:'tried',l:'Status'},{k:'_map',l:''}
+    {k:'name',l:'Name',cls:''},{k:'customCat',l:'Category',cls:''},{k:'foodTags',l:'Food types',cls:'col-food'},
+    {k:'neighborhood',l:'Area',cls:''},{k:'price',l:'Price',cls:''},
+    {k:'hype',l:'Hype',cls:''},{k:'accolades',l:'Accolades',cls:'col-accolades'},{k:'rating',l:'Rating',cls:'col-rating'},{k:'tried',l:'Status',cls:''},{k:'_map',l:'',cls:''}
   ]
   document.getElementById('thead-row').innerHTML = cols.map(c =>
-    `<th onclick="sortBy('${c.k}')">${c.l}${arr(c.k)}</th>`
+    `<th class="${c.cls}" onclick="sortBy('${c.k}')">${c.l}${arr(c.k)}</th>`
   ).join('')
   document.getElementById('tbody').innerHTML = list.map(p => {
     const catTags = (p.customCat||'').split(',').filter(Boolean).map(c=>`<span class="badge badge-cat">${c}</span>`).join(' ')
@@ -738,14 +768,14 @@ function renderTable() {
       ? (p.rating ? `<span class="stars-gold">${'★'.repeat(p.rating)}${'☆'.repeat(5-p.rating)}</span>` : '<span style="color:var(--text-faint);font-size:12px;">not rated</span>')
       : '—'
     return `<tr onclick="openEdit(${p.id})" style="cursor:pointer">
-      <td style="font-weight:500;white-space:nowrap">${p.name}</td>
+      <td style="font-weight:500;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.name}">${p.name}</td>
       <td><div style="display:flex;flex-wrap:wrap;gap:3px">${catTags || '<span style="color:var(--text-faint);font-size:12px">—</span>'}</div></td>
-      <td><div style="display:flex;flex-wrap:wrap;gap:3px">${foodBadges || '<span style="color:var(--text-faint);font-size:12px">—</span>'}</div></td>
+      <td class="col-food"><div style="display:flex;flex-wrap:wrap;gap:3px">${foodBadges || '<span style="color:var(--text-faint);font-size:12px">—</span>'}</div></td>
       <td style="color:var(--text-muted);white-space:nowrap">${p.neighborhood||'—'}</td>
       <td>${p.price}</td>
       <td>${hypeSymbol(p)}</td>
-      <td><div style="display:flex;gap:3px;flex-wrap:wrap">${accoladeHTML(p.accolades)}</div></td>
-      <td>${ratingCell}</td>
+      <td class="col-accolades"><div style="display:flex;gap:3px;flex-wrap:wrap">${accoladeHTML(p.accolades)}</div></td>
+      <td class="col-rating">${ratingCell}</td>
       <td onclick="event.stopPropagation()">${triedBtn}</td>
       <td>${mapLink}</td>
     </tr>`
