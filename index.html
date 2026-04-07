@@ -66,7 +66,9 @@
     .stat-val { font-size: 26px; font-weight: 300; color: var(--text); line-height: 1; }
 
     /* ── TOOLBAR ── */
-    .toolbar { padding: 0 1.5rem 1rem; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .toolbar { padding: 0 1.5rem 1rem; display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+    .filter-group { display: flex; flex-direction: column; gap: 3px; }
+    .filter-label { font-size: 10px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
     .toolbar select, .toolbar input[type=text] { font-size: 13px; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-family: 'DM Sans', sans-serif; outline: none; }
     .toolbar select:focus, .toolbar input:focus { border-color: var(--accent); }
     .toolbar input[type=text] { flex: 1; min-width: 120px; }
@@ -272,31 +274,49 @@
   </div>
 
   <div class="toolbar">
-    <select id="f-hype" onchange="renderAll()">
-      <option value="">All hype</option>
-      <option value="2">❗❗ Must go</option>
-      <option value="1">❗ Interested</option>
-      <option value="list">📋 On my list</option>
-    </select>
-    <select id="f-cat" onchange="renderAll()"><option value="">All categories</option></select>
-    <select id="f-food" onchange="renderAll()"><option value="">All food types</option></select>
-    <select id="f-price" onchange="renderAll()">
-      <option value="">Any price</option>
-      <option value="$">$</option><option value="$$">$$</option><option value="$$$">$$$</option><option value="$$$$">$$$$</option>
-    </select>
-    <select id="f-accolade" onchange="renderAll()">
-      <option value="">Any accolade</option>
-      <option value="michelin1">Michelin ★</option>
-      <option value="michelin2">Michelin ★★</option>
-      <option value="michelin3">Michelin ★★★</option>
-      <option value="bib">Bib Gourmand</option>
-      <option value="jb">James Beard</option>
-    </select>
-    <select id="f-tried" onchange="renderAll()">
-      <option value="">All places</option>
-      <option value="yes">Tried</option>
-      <option value="no">Want to try</option>
-    </select>
+    <div class="filter-group">
+      <label class="filter-label">Hype</label>
+      <select id="f-hype" onchange="renderAll()">
+        <option value="">All</option>
+        <option value="3">❗❗❗</option>
+        <option value="2">❗❗</option>
+        <option value="1">❗</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">Category</label>
+      <select id="f-cat" onchange="renderAll()"><option value="">All</option></select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">Food type</label>
+      <select id="f-food" onchange="renderAll()"><option value="">All</option></select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">Price</label>
+      <select id="f-price" onchange="renderAll()">
+        <option value="">All</option>
+        <option value="$">$</option><option value="$$">$$</option><option value="$$$">$$$</option><option value="$$$$">$$$$</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">Accolade</label>
+      <select id="f-accolade" onchange="renderAll()">
+        <option value="">All</option>
+        <option value="michelin1">Michelin ★</option>
+        <option value="michelin2">Michelin ★★</option>
+        <option value="michelin3">Michelin ★★★</option>
+        <option value="bib">Bib Gourmand</option>
+        <option value="jb">James Beard</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">Status</label>
+      <select id="f-tried" onchange="renderAll()">
+        <option value="">All</option>
+        <option value="yes">Tried</option>
+        <option value="no">Want to try</option>
+      </select>
+    </div>
     <div style="position:relative;flex:1;min-width:140px;">
       <input type="text" id="f-search" placeholder="Search or add a place..." oninput="onSearchInput()" autocomplete="off" style="width:100%;padding-right:80px" />
       <div id="search-add-btn" style="display:none;position:absolute;right:4px;top:50%;transform:translateY(-50%);">
@@ -373,9 +393,9 @@
       <input type="hidden" id="hype-value" value="" />
       <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
         <button type="button" id="hype-btn-none" class="hype-opt active" onclick="selectHype(null)">None</button>
-        <button type="button" id="hype-btn-list" class="hype-opt" onclick="selectHype('list')">📋 On my list</button>
-        <button type="button" id="hype-btn-1" class="hype-opt" onclick="selectHype('1')">❗ Interested</button>
-        <button type="button" id="hype-btn-2" class="hype-opt" onclick="selectHype('2')">❗❗ Must go</button>
+        <button type="button" id="hype-btn-1" class="hype-opt" onclick="selectHype('1')">❗</button>
+        <button type="button" id="hype-btn-2" class="hype-opt" onclick="selectHype('2')">❗❗</button>
+        <button type="button" id="hype-btn-3" class="hype-opt" onclick="selectHype('3')">❗❗❗</button>
       </div>
     </div>
     <div class="form-group">
@@ -621,7 +641,7 @@ function getFiltered() {
   const fTried = document.getElementById('f-tried').value
   const fSearch = document.getElementById('f-search').value.toLowerCase()
   return places.filter(p => {
-    if (fHype && p.hype !== fHype) return false
+    if (fHype && String(p.hype||'') !== fHype) return false
     if (fCat && !(p.customCat||'').split(',').includes(fCat)) return false
     if (fFood && !(p.foodTags||[]).includes(fFood)) return false
     if (fPrice && p.price !== fPrice) return false
@@ -696,16 +716,17 @@ function renderStats() {
 function hypeSymbol(p) {
   if (p.tried) return ''
   const h = p.hype ? String(p.hype).trim() : null
+  if (h === '3') return '<span class="hype-sym">❗❗❗</span>'
   if (h === '2') return '<span class="hype-sym">❗❗</span>'
   if (h === '1') return '<span class="hype-sym">❗</span>'
-  if (h === 'list') return '<span class="hype-list">📋</span>'
   return '<span style="color:var(--text-faint);font-size:12px;">—</span>'
 }
 
 function hypeOrder(p) {
-  if (p.hype === '2') return 3
-  if (p.hype === '1') return 2
-  if (p.hype === 'list') return 1
+  const h = p.hype ? String(p.hype) : null
+  if (h === '3') return 3
+  if (h === '2') return 2
+  if (h === '1') return 1
   return 0
 }
 
@@ -747,9 +768,9 @@ function renderTable() {
   })
   const arr = c => sortCol===c ? (sortDir===1?' ↑':' ↓') : ''
   const cols = [
-    {k:'name',l:'Name',cls:''},{k:'customCat',l:'Category',cls:''},{k:'foodTags',l:'Food types',cls:'col-food'},
-    {k:'neighborhood',l:'Area',cls:''},{k:'price',l:'Price',cls:''},
-    {k:'hype',l:'Hype',cls:''},{k:'accolades',l:'Accolades',cls:'col-accolades'},{k:'rating',l:'Rating',cls:'col-rating'},{k:'tried',l:'Status',cls:''},{k:'_map',l:'',cls:''}
+    {k:'name',l:'Name',cls:''},{k:'customCat',l:'Category',cls:''},{k:'foodTags',l:'Food types',cls:''},
+    {k:'price',l:'Price',cls:''},
+    {k:'hype',l:'Hype',cls:''},{k:'accolades',l:'Accolades',cls:''},{k:'rating',l:'Status',cls:''},{k:'_map',l:'',cls:''}
   ]
   document.getElementById('thead-row').innerHTML = cols.map(c =>
     `<th class="${c.cls}" onclick="sortBy('${c.k}')">${c.l}${arr(c.k)}</th>`
@@ -767,16 +788,15 @@ function renderTable() {
     const ratingCell = p.tried
       ? (p.rating ? `<span class="stars-gold">${'★'.repeat(p.rating)}${'☆'.repeat(5-p.rating)}</span>` : '<span style="color:var(--text-faint);font-size:12px;">not rated</span>')
       : '—'
+    const nameTitle = [p.name, p.neighborhood].filter(Boolean).join(' · ')
     return `<tr onclick="openEdit(${p.id})" style="cursor:pointer">
-      <td style="font-weight:500;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.name}">${p.name}</td>
+      <td style="font-weight:500;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${nameTitle}">${p.name}${p.neighborhood ? `<br><span style="font-size:10px;font-weight:400;color:var(--text-faint)">${p.neighborhood}</span>` : ''}</td>
       <td><div style="display:flex;flex-wrap:wrap;gap:3px">${catTags || '<span style="color:var(--text-faint);font-size:12px">—</span>'}</div></td>
-      <td class="col-food"><div style="display:flex;flex-wrap:wrap;gap:3px">${foodBadges || '<span style="color:var(--text-faint);font-size:12px">—</span>'}</div></td>
-      <td style="color:var(--text-muted);white-space:nowrap">${p.neighborhood||'—'}</td>
+      <td><div style="display:flex;flex-wrap:wrap;gap:3px">${foodBadges || '<span style="color:var(--text-faint);font-size:12px">—</span>'}</div></td>
       <td>${p.price}</td>
       <td>${hypeSymbol(p)}</td>
-      <td class="col-accolades"><div style="display:flex;gap:3px;flex-wrap:wrap">${accoladeHTML(p.accolades)}</div></td>
-      <td class="col-rating">${ratingCell}</td>
-      <td onclick="event.stopPropagation()">${triedBtn}</td>
+      <td><div style="display:flex;gap:3px;flex-wrap:wrap">${accoladeHTML(p.accolades)}</div></td>
+      <td onclick="event.stopPropagation()" title="${p.rating ? p.rating + ' stars' : ''}">${triedBtn}</td>
       <td>${mapLink}</td>
     </tr>`
   }).join('')
